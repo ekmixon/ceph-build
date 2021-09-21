@@ -57,7 +57,7 @@
                     FORCE=True
                     DISTROS=focal bionic centos7 centos8 leap15
       # build pacific on:
-      # default: focal bionic centos8 leap15
+      # default: focal bionic centos8 centos9 leap15
       # crimson: centos8
       - conditional-step:
           condition-kind: regex-match
@@ -74,7 +74,7 @@
                   predefined-parameters: |
                     BRANCH=${GIT_BRANCH}
                     FORCE=True
-                    DISTROS=focal bionic centos8 leap15
+                    DISTROS=focal bionic centos8 centos9 leap15
                 - project: 'ceph-dev'
                   predefined-parameters: |
                     BRANCH=${GIT_BRANCH}
@@ -109,7 +109,7 @@
                     FLAVOR=crimson
                     ARCHS=x86_64
       # build master on:
-      # default: focal centos8 windows
+      # default: focal centos8 centos9 windows
       # crimson: centos8
       - conditional-step:
           condition-kind: regex-match
@@ -126,7 +126,7 @@
                   predefined-parameters: |
                     BRANCH=${GIT_BRANCH}
                     FORCE=True
-                    DISTROS=focal centos8 windows
+                    DISTROS=focal centos8 centos9 windows
                 - project: 'ceph-dev'
                   predefined-parameters: |
                     BRANCH=${GIT_BRANCH}
