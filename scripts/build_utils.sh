@@ -256,19 +256,21 @@ get_rpm_dist() {
     # creates a DISTRO_VERSION and DISTRO global variable for
     # use in constructing chacra urls for rpm distros
 
-    LSB_RELEASE=/usr/bin/lsb_release
-    [ ! -x $LSB_RELEASE ] && echo unknown && exit
+    #LSB_RELEASE=/usr/bin/lsb_release
+    #[ ! -x $LSB_RELEASE ] && echo unknown && exit
 
-    ID=`$LSB_RELEASE --short --id`
+    #ID=`$LSB_RELEASE --short --id`
+
+    source /etc/os-release
 
     case $ID in
     RedHatEnterpriseServer)
-        RELEASE=`$LSB_RELEASE --short --release | cut -d. -f1`
-        DIST=rhel$RELEASE
+        RELEASE=$VERSION                
+        DIST=rhel$VERSION
         DISTRO=rhel
         ;;
-    CentOS|CentOSStream)
-        RELEASE=`$LSB_RELEASE --short --release | cut -d. -f1`
+    CentOS|CentOSStream|centos) #$ID in /etc/os-release is lowercase
+        RELEASE=$VERSION
         DIST=el$RELEASE
         DISTRO=centos
         ;;
@@ -1350,6 +1352,21 @@ setup_rpm_build_deps() {
         # before EPEL8 and PowerTools provide all dependencies, we use sepia for the dependencies
         $SUDO dnf config-manager --add-repo http://apt-mirror.front.sepia.ceph.com/lab-extras/8/
         $SUDO dnf config-manager --setopt=apt-mirror.front.sepia.ceph.com_lab-extras_8_.gpgcheck=0 --save
+
+    elif [ "$RELEASE" = 9 ]; then
+        $SUDO dnf -y copr enable ceph/el9
+        $SUDO dnf config-manager --setopt=copr\:copr.fedorainfracloud.org\:ceph\:el9.gpgcheck=0 --save
+
+        $SUDO dnf -y install epel-next-release
+
+        $SUDO dnf config-manager --add-repo http://mirror.stream.centos.org/9-stream/CRB/x86_64/os/
+        $SUDO dnf config-manager --setopt=mirror.stream.centos.org_9-stream_CRB_x86_64_os_.gpgcheck=0 --save
+   
+        #$SUDO dnf -y module enable javapackages-tools
+        $SUDO dnf -y install javapackages-tools
+        # before EPEL8 and PowerTools provide all dependencies, we use sepia for the dependencies
+        #$SUDO dnf config-manager --add-repo http://apt-mirror.front.sepia.ceph.com/lab-extras/8/
+        #$SUDO dnf config-manager --setopt=apt-mirror.front.sepia.ceph.com_lab-extras_8_.gpgcheck=0 --save
 
     fi
 
