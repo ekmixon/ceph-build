@@ -1,5 +1,7 @@
 #!/bin/bash -ex
 
+cd $WORKSPACE/ceph-build/ansible/ceph
+
 HOST=$(hostname --short)
 echo "Building on ${HOST}"
 echo "  DIST=${DIST}"
@@ -41,7 +43,7 @@ CEPH_EXTRA_CMAKE_ARGS="$CEPH_EXTRA_CMAKE_ARGS -DALLOCATOR=tcmalloc"
 # which calls `aclocal -I m4 --install` that copies a system version of
 # ltsugar.m4 that can be different from the one included in the ceph source
 # tree.
-if git diff --quiet ; then
+if git diff --quiet --ignore-submodules; then
     echo repository is clean
 else
     echo

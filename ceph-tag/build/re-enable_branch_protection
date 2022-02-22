@@ -1,0 +1,3 @@
+#!/bin/bash
+cd "$WORKSPACE/ceph-build"
+./scripts/enable-branch-protection.sh $BRANCH

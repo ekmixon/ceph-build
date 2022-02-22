@@ -1,0 +1,63 @@
+---
+# Note: None of this will get run when "release == 'SECURITY'"
+# We want to make sure packages get pulled, signed, and pushed before publicly
+# pushing the security fix. Pushing tags will be done manually by a human.
+- name: clear the previous remote tag
+  command: git push origin :v{{ version }}
+  args:
+    chdir: ceph
+  ignore_errors: yes
+  when: clean
+
+- name: clone the ceph repository
+  git:
+    repo: https://github.com/ceph/ceph
+    dest: ceph
+    remote: upstream
+    accept_hostkey: yes
+
+- name: git fetch --all
+  command: git fetch --all
+  args:
+    chdir: ceph
+
+# REGULAR / RC
+# This assumes {{ branch }} is at the point where release is desired
+- name: "git checkout and reset {{ branch }}-release to {{ branch }} for REGULAR or RC release"
+  command: git checkout -f -B {{ branch }}-release upstream/{{ branch }}
+  args:
+    chdir: ceph
+  when: "release == 'STABLE' or release == 'RELEASE_CANDIDATE'"
+
+# HOTFIX
+# This assumes hotfix has already been pushed to {{ branch }}-release branch on github
+- name: "git checkout {{ branch }}-release for HOTFIX release"
+  command: git checkout {{ branch }}-release
+  args:
+    chdir: ceph
+  when: "release == 'HOTFIX'"
+
+- name: apply the version commit patch to our local checkout
+  command: git am < ../*.patch
+  args:
+    chdir: ceph
+
+- name: push version commit to BRANCH-release branch
+  command: git push upstream {{ branch }}-release
+  args:
+    chdir: ceph
+
+- name: "git checkout {{ branch }}"
+  command: git checkout {{ branch }}
+  args:
+    chdir: ceph
+
+- name: "merge {{ branch }}-release changes back into {{ branch }}"
+  command: git merge {{ branch }}-release
+  args:
+    chdir: ceph
+  
+- name: push the newly created tag
+  command: git push upstream v{{ version }}
+  args:
+    chdir: ceph
