@@ -128,19 +128,20 @@ def translate_params(params):
 
 
 def create(uri, user, password, name, **kw):
-    launcher_params = {}
-    launcher_params['credentialsId'] = kw.pop('credentialsId', None)
+    launcher_params = {'credentialsId': kw.pop('credentialsId', None)}
     launcher_params['host'] = kw.pop('host', None)
-    if all(launcher_params.values()) is False:
+    if not all(launcher_params.values()):
         launcher_params = {}
     params = translate_params(kw)
     j = _jenkins(uri, user, password)
     if j.node_exists(name):
         return False, "Failed to create node '%s' - already exists." % name
     j.create_node(name, launcher_params=launcher_params, **params)
-    if not j.node_exists(name):
-        return False, "Failed to create node '%s'." % name
-    return True, None
+    return (
+        (True, None)
+        if j.node_exists(name)
+        else (False, "Failed to create node '%s'." % name)
+    )
 
 
 def delete(uri, user, password, name, **kw):
@@ -241,11 +242,11 @@ def main():
         # requests, can be properly translated into meaningful errors so that
         # Ansible can report those back.
         if ex.__class__.__name__ == 'HTTPError':
-            msg = "HTTPError %s: %s" % (ex.code, ex.url)
+            msg = f"HTTPError {ex.code}: {ex.url}"
         else:
             message = getattr(ex, 'message', None)
             msg = getattr(ex, 'msg', message)
-            msg = "%s: %s" % (ex.__class__.__name__, msg)
+            msg = f"{ex.__class__.__name__}: {msg}"
         return module.fail_json(msg=msg)
 
     args = {'changed': changed}

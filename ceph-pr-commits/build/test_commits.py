@@ -40,12 +40,13 @@ class TestCommits(object):
     @pytest.mark.doc_test
     def test_doc_title(self):
         doc_regex = '\nDate:[^\n]+\n\n    doc'
-        all_commits = 'git log -z --no-merges origin/%s..%s' % (
-            self.target_branch, self.source_branch)
-        wrong_commits = list(filterfalse(
-            re.compile(doc_regex).search,
-            self.command(all_commits).split('\0')))
-        if wrong_commits:
+        all_commits = f'git log -z --no-merges origin/{self.target_branch}..{self.source_branch}'
+
+        if wrong_commits := list(
+            filterfalse(
+                re.compile(doc_regex).search, self.command(all_commits).split('\0')
+            )
+        ):
             raise AssertionError("\n".join([
                 "The title/s of following commit/s is/are not started with 'doc', but they only touch files under 'doc/'. Please make sure the commit titles",
                 "are started with 'doc'. See the 'Submitting Patches' guide:",
@@ -58,12 +59,14 @@ class TestCommits(object):
     def test_signed_off_by(self):
         signed_off_regex = r'Signed-off-by: \S.* <[^@]+@[^@]+\.[^@]+>'
         # '-z' puts a '\0' between commits, see later split('\0')
-        check_signed_off_commits = 'git log -z --no-merges origin/%s..%s' % (
-            self.target_branch, self.source_branch)
-        wrong_commits = list(filterfalse(
-            re.compile(signed_off_regex).search,
-            self.command(check_signed_off_commits).split('\0')))
-        if wrong_commits:
+        check_signed_off_commits = f'git log -z --no-merges origin/{self.target_branch}..{self.source_branch}'
+
+        if wrong_commits := list(
+            filterfalse(
+                re.compile(signed_off_regex).search,
+                self.command(check_signed_off_commits).split('\0'),
+            )
+        ):
             raise AssertionError("\n".join([
                 "Following commit/s is/are not signed, please make sure all TestCommits",
                 "are signed following the 'Submitting Patches' guide:",

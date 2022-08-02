@@ -26,16 +26,17 @@ SHA1_RE = re.compile(r'([0-9a-f]{40})(-crimson|-aarch64)*')
 def get_all_quay_tags(quaytoken):
     page = start_page
     has_additional = True
-    ret = list()
+    ret = []
 
     while has_additional and page < page_limit:
         try:
             response = requests.get(
                 '/'.join((QUAYBASE, 'repository', REPO, 'tag')),
                 params={'page': page, 'limit': 100, 'onlyActiveTags': 'false'},
-                headers={'Authorization': 'Bearer %s' % quaytoken},
+                headers={'Authorization': f'Bearer {quaytoken}'},
                 timeout=30,
             )
+
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
             print(
@@ -72,14 +73,12 @@ def query_shaman(ref, sha1, el):
         'project': 'ceph',
         'flavor': 'default',
         'status': 'ready',
+        'distros': 'centos/{el}/x86_64,centos/{el}/aarch64'.format(el=el)
+        if el
+        else 'centos/7/x86_64,centos/8/x86_64,centos/9/x86_64,'
+        + 'centos/7/aarch64,centos/8/aarch64,centos/9/aarch64',
     }
-    if el:
-        params['distros'] = \
-            'centos/{el}/x86_64,centos/{el}/aarch64'.format(el=el)
-    else:
-        params['distros'] = \
-            'centos/7/x86_64,centos/8/x86_64,centos/9/x86_64,' + \
-            'centos/7/aarch64,centos/8/aarch64,centos/9/aarch64'
+
     if ref:
         params['ref'] = ref
     if sha1:
@@ -110,7 +109,7 @@ def ref_present_in_shaman(ref, short_sha1, el, arch, verbose):
 
     if short_sha1 in short_sha1_cache:
         if verbose:
-            print('Found %s in shaman short_sha1_cache' % short_sha1)
+            print(f'Found {short_sha1} in shaman short_sha1_cache')
         return True
 
     response = query_shaman(ref, None, el)
@@ -120,16 +119,16 @@ def ref_present_in_shaman(ref, short_sha1, el, arch, verbose):
         # don't cache, but claim present:
         # avoid deletion in case of transient shaman failure
         if verbose:
-            print('Found %s (assumed because shaman request failed)' % ref)
+            print(f'Found {ref} (assumed because shaman request failed)')
         return True
 
     matches = response.json()
     if len(matches) == 0:
         return False
     for match in matches:
-        if match['sha1'][0:7] == short_sha1:
+        if match['sha1'][:7] == short_sha1:
             if verbose:
-                print('Found %s in shaman: sha1 %s' % (ref, match['sha1']))
+                print(f"Found {ref} in shaman: sha1 {match['sha1']}")
             short_sha1_cache.add(short_sha1)
             return True
     return False
@@ -139,7 +138,7 @@ def sha1_present_in_shaman(sha1, verbose):
 
     if sha1 in sha1_cache:
         if verbose:
-            print('Found %s in shaman sha1_cache' % sha1)
+            print(f'Found {sha1} in shaman sha1_cache')
         return True
 
     response = query_shaman(None, sha1, None)
@@ -149,7 +148,7 @@ def sha1_present_in_shaman(sha1, verbose):
         # don't cache, but claim present
         # to avoid deleting on transient shaman failure
         if verbose:
-            print('Found %s (assuming because shaman request failed)' % sha1)
+            print(f'Found {sha1} (assuming because shaman request failed)')
         return True
 
     matches = response.json()
@@ -158,7 +157,7 @@ def sha1_present_in_shaman(sha1, verbose):
     for match in matches:
         if match['sha1'] == sha1:
             if verbose:
-                print('Found %s in shaman' % sha1)
+                print(f'Found {sha1} in shaman')
             sha1_cache.add(sha1)
             return True
     return False
@@ -172,9 +171,10 @@ def delete_from_quay(tagname, quaytoken, dryrun):
     try:
         response = requests.delete(
             '/'.join((QUAYBASE, 'repository', REPO, 'tag', tagname)),
-            headers={'Authorization': 'Bearer %s' % quaytoken},
+            headers={'Authorization': f'Bearer {quaytoken}'},
             timeout=30,
         )
+
         response.raise_for_status()
         print('Deleted', tagname)
     except requests.exceptions.RequestException as e:
@@ -213,31 +213,29 @@ def main():
 
     # find all full tags to delete, put them and ref tag on list
     tags_to_delete = set()
-    short_sha1s_to_delete = list()
+    short_sha1s_to_delete = []
     for tag in quaytags:
         name = tag['name']
         if 'expiration' in tag or 'end_ts' in tag:
             if args.verbose:
-                print('Skipping deleted-or-overwritten tag %s' % name)
+                print(f'Skipping deleted-or-overwritten tag {name}')
             continue
 
         ref, short_sha1, el, arch = parse_quay_tag(name)
         if ref is None:
             if args.verbose:
-                print(
-                    'Skipping %s, not in ref-shortsha1-el-arch form' % name
-                )
+                print(f'Skipping {name}, not in ref-shortsha1-el-arch form')
             continue
 
         if ref_present_in_shaman(ref, short_sha1, el, arch, args.verbose):
             if args.verbose:
-                print('Skipping %s, present in shaman' % name)
+                print(f'Skipping {name}, present in shaman')
             continue
 
         # accumulate full and ref tags to delete; keep list of short_sha1s
 
         if args.verbose:
-            print('Marking %s for deletion' % name)
+            print(f'Marking {name} for deletion')
         tags_to_delete.add(name)
         if ref:
             # the ref tag may already have been overwritten by a new
@@ -248,17 +246,15 @@ def main():
                 if not t['is_manifest_list']
                 and t['image_id'] == tag['image_id']
             ]
-            if ref in names_of_same_image:
-                if args.verbose:
-                    print('Marking %s for deletion' % name)
+            if args.verbose:
+                if ref in names_of_same_image:
+                    print(f'Marking {name} for deletion')
                     tags_to_delete.add(name)
-            else:
-                if args.verbose:
-                    print('Skipping %s: not in %s' %
-                          (name, names_of_same_image))
+                else:
+                    print(f'Skipping {name}: not in {names_of_same_image}')
         if short_sha1:
             if args.verbose:
-                print('Marking %s for 2nd-pass deletion' % short_sha1)
+                print(f'Marking {short_sha1} for 2nd-pass deletion')
             short_sha1s_to_delete.append(short_sha1)
 
     # now find all the full-sha1 tags to delete by making a second
@@ -271,21 +267,19 @@ def main():
         if 'expiration' in tag or 'end_ts' in tag:
             continue
 
-        if name[0:7] in short_sha1s_to_delete:
+        if name[:7] in short_sha1s_to_delete:
             if args.verbose:
-                print('Marking %s for deletion: matches short_sha1 %s' %
-                      (name, name[0:7]))
+                print(f'Marking {name} for deletion: matches short_sha1 {name[:7]}')
 
             tags_to_delete.add(name)
             # already selected a SHA1 tag; no point in checking for orphaned
             continue
 
-        match = SHA1_RE.match(name)
-        if match:
+        if match := SHA1_RE.match(name):
             sha1 = match[1]
             if sha1_present_in_shaman(sha1, args.verbose):
                 if args.verbose:
-                    print('Skipping %s, present in shaman' % name)
+                    print(f'Skipping {name}, present in shaman')
                 continue
             if args.verbose:
                 print(
